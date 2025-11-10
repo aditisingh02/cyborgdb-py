@@ -52,7 +52,7 @@ client = Client('https://localhost:8000', 'your-api-key')
 index_key = client.generate_key()
 
 # Create an encrypted index
-index = await client.create_index(
+index = client.create_index(
     index_name='my-index', 
     index_key=index_key
 )
@@ -61,27 +61,27 @@ index = await client.create_index(
 items = [
     {
         'id': 'doc1',
-        'vector': [([0.1] * 128)],  # Replace with real embeddings
+        'vector': [0.1] * 128,  # Replace with real embeddings
         'contents': 'Hello world!',
         'metadata': {'category': 'greeting', 'language': 'en'}
     },
     {
         'id': 'doc2',
-        'vector': [([0.1] * 128)],  # Replace with real embeddings
+        'vector': [0.1] * 128,  # Replace with real embeddings
         'contents': 'Bonjour le monde!',
         'metadata': {'category': 'greeting', 'language': 'fr'}
     }
 ]
 
-await index.upsert(items)
+index.upsert(items)
 
 # Query the encrypted index
-query_vector = [0.1, 0.2, 0.3, *([0.0] * 128)]  # 128 dimensions
-results = await index.query(query_vector, 10)
+query_vector = [0.2] * 128  # 128 dimensions
+results = index.query(query_vectors=query_vector,top_k=5)
 
 # Print the results
-for result in results.results:
-    print(f"ID: {result.id}, Distance: {result.distance}")
+for result in results:
+    print(f"ID: {result['id']}, Distance: {result['distance']}")
 ```
 
 ### Advanced Usage
