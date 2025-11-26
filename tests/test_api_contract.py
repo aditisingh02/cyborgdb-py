@@ -173,7 +173,9 @@ class TestAPIContract(unittest.TestCase):
         # Test generate_key signature (static method)
         validate_function_signature(
             cyborgdb.Client.generate_key,
-            {},  # No parameters
+            {
+                "save": {"position": 0, "default": False},
+            },
             "Client.generate_key",
         )
 
@@ -186,11 +188,27 @@ class TestAPIContract(unittest.TestCase):
         self.assertIsInstance(key, bytes, "generate_key must return bytes")
         self.assertEqual(len(key), 32, "Key must be exactly 32 bytes")
 
-        # Test that it accepts no arguments
-        with self.assertRaises(
-            TypeError, msg="generate_key should accept no arguments"
-        ):
-            cyborgdb.Client.generate_key("unexpected_arg")
+        # Test that it accepts save argument
+        key = cyborgdb.Client.generate_key(save=True)
+        key2 = cyborgdb.Client.generate_key(save=True)
+        self.assertEqual(key, key2, "Keys generated with save=True should be the same")
+
+        # Test that it rejects unexpected arguments
+        with self.assertRaises(TypeError):
+            cyborgdb.Client.generate_key(unexpected_arg=123)
+
+        # Test that explicit save=False generates a new key
+        new_key = cyborgdb.Client.generate_key(save=False)
+        self.assertNotEqual(
+            new_key, key, "Keys generated with save=False should be different"
+        )
+
+        # Test that member function is able to recall the same key
+        client = cyborgdb.Client(base_url=self.base_url, api_key=self.api_key)
+        member_key = client.generate_key(save=True)
+        self.assertEqual(
+            member_key, key, "Keys generated with save=True should be the same"
+        )
 
         # Test that is also works as a member function
         client = cyborgdb.Client(base_url=self.base_url, api_key=self.api_key)
