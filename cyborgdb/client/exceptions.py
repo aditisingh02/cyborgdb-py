@@ -11,8 +11,6 @@ from typing import Optional
 class CyborgDBError(Exception):
     """Base exception class for all CyborgDB client errors."""
 
-    pass
-
 
 class CyborgDBConnectionError(CyborgDBError):
     """Raised when connection to CyborgDB service fails."""
@@ -24,8 +22,6 @@ class CyborgDBConnectionError(CyborgDBError):
 
 class CyborgDBValidationError(CyborgDBError, ValueError):
     """Raised when input validation fails."""
-
-    pass
 
 
 class CyborgDBAuthenticationError(CyborgDBError):

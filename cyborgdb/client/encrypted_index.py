@@ -235,10 +235,6 @@ class EncryptedIndex:
             elif e.status == 404:
                 raise CyborgDBNotFoundError(error_msg) from e
             raise CyborgDBConnectionError(error_msg) from e
-        except Exception as e:
-            error_msg = f"Get operation failed: {str(e)}"
-            logger.error(error_msg)
-            raise
 
     def train(
         self,
@@ -613,13 +609,6 @@ class EncryptedIndex:
                     f"Authentication failed: {error_msg}", status_code=e.status
                 ) from e
             raise CyborgDBConnectionError(error_msg) from e
-        except Exception as e:
-            error_msg = f"Unexpected error in query: {str(e)}"
-            logger.error(error_msg)
-            import traceback
-
-            logger.error(traceback.format_exc())
-            raise
 
     def list_ids(self) -> List[str]:
         """

@@ -248,11 +248,32 @@ class Client:
     ) -> EncryptedIndex:
         """
         Create and return a new encrypted index based on the provided configuration.
+
+        This method sends a request to the CyborgDB REST API to create an encrypted
+        index identified by index_name using the provided 32-byte index_key
+        and optional index configuration, embedding model, and distance metric.
+
+        Args:
+            index_name: The unique name of the index to create in the CyborgDB service.
+            index_key: A 32-byte encryption key used to secure the index; must be
+                provided as a bytes object.
+            index_config: Optional index configuration specifying index type and
+                parameters (e.g., IVF, IVFPQ, or IVFFlat). If None, a default
+                IndexIVFFlatModel configuration is used.
+            embedding_model: Optional identifier of the embedding model associated
+                with the index. If provided, it will be stored with the index metadata.
+            metric: Optional similarity or distance metric to use for the index
+                (e.g., "cosine" or "euclidean"), if supported by the service.
+
+        Returns:
+            EncryptedIndex: A client-side EncryptedIndex instance representing
+            the newly created encrypted index.
+
         Raises:
-            CyborgDBInvalidKeyError: If index_key is invalid
-            CyborgDBIndexError: If index creation fails
-            CyborgDBAuthenticationError: If authentication fails
-            CyborgDBValidationError: If validation fails
+            CyborgDBInvalidKeyError: If index_key is not a 32-byte bytes value.
+            CyborgDBIndexError: If index creation fails on the server side.
+            CyborgDBAuthenticationError: If authentication with the CyborgDB service fails.
+            CyborgDBValidationError: If the request payload fails validation.
         """
         # Validate index_key
         if not isinstance(index_key, bytes) or len(index_key) != 32:
@@ -315,11 +336,23 @@ class Client:
         """
         Load an existing encrypted index by name and key.
 
+        This method loads an existing encrypted index from the CyborgDB service
+        by its name and encryption key. The index must already exist in the service.
+
+        Args:
+            index_name: The name of the existing index to load.
+            index_key: A 32-byte encryption key used to access the index; must be
+                provided as a bytes object and match the key used when the index was created.
+
+        Returns:
+            EncryptedIndex: A client-side EncryptedIndex instance representing
+            the loaded encrypted index.
+
         Raises:
-            CyborgDBInvalidKeyError: If index_key is invalid
-            CyborgDBNotFoundError: If the index is not found
-            CyborgDBAuthenticationError: If authentication fails
-            CyborgDBValidationError: If validation fails
+            CyborgDBInvalidKeyError: If index_key is not a 32-byte bytes value.
+            CyborgDBNotFoundError: If the index is not found in the service.
+            CyborgDBAuthenticationError: If authentication with the CyborgDB service fails.
+            CyborgDBValidationError: If validation of the request parameters fails.
         """
         # Validate index_key
         if not isinstance(index_key, bytes) or len(index_key) != 32:
