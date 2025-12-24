@@ -31,6 +31,13 @@ except ImportError:
         "Failed to import openapi_client. Make sure the OpenAPI client library is properly installed."
     )
 
+from cyborgdb.client.exceptions import (
+    CyborgDBIndexError,
+    CyborgDBAuthenticationError,
+    CyborgDBNotFoundError,
+    CyborgDBConnectionError,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -146,7 +153,15 @@ class EncryptedIndex:
         except ApiException as e:
             error_msg = f"Failed to delete index: {e}"
             logger.error(error_msg)
-            raise ValueError(error_msg)
+            if e.status == 401 or e.status == 403:
+                raise CyborgDBAuthenticationError(
+                    f"Authentication failed: {error_msg}", status_code=e.status
+                ) from e
+            elif e.status == 404:
+                raise CyborgDBNotFoundError(
+                    f"Index not found: {error_msg}", resource_name=self._index_name
+                ) from e
+            raise CyborgDBIndexError(error_msg, index_name=self._index_name) from e
 
     def get(
         self, ids: List[str], include: List[str] = ["vector", "contents", "metadata"]
@@ -210,14 +225,20 @@ class EncryptedIndex:
                     items.append(item_dict)
 
             return items
+        except ApiException as e:
+            error_msg = f"Failed to retrieve items: {e}"
+            logger.error(error_msg)
+            if e.status == 401 or e.status == 403:
+                raise CyborgDBAuthenticationError(
+                    f"Authentication failed: {error_msg}", status_code=e.status
+                ) from e
+            elif e.status == 404:
+                raise CyborgDBNotFoundError(error_msg) from e
+            raise CyborgDBConnectionError(error_msg) from e
         except Exception as e:
             error_msg = f"Get operation failed: {str(e)}"
             logger.error(error_msg)
             raise
-        except ApiException as e:
-            error_msg = f"Failed to retrieve items: {e}"
-            logger.error(error_msg)
-            raise ValueError(error_msg)
 
     def train(
         self,
@@ -260,7 +281,11 @@ class EncryptedIndex:
         except ApiException as e:
             error_msg = f"Failed to train index: {e}"
             logger.error(error_msg)
-            raise ValueError(error_msg)
+            if e.status == 401 or e.status == 403:
+                raise CyborgDBAuthenticationError(
+                    f"Authentication failed: {error_msg}", status_code=e.status
+                ) from e
+            raise CyborgDBIndexError(error_msg, index_name=self._index_name) from e
 
     def upsert(
         self,
@@ -381,7 +406,11 @@ class EncryptedIndex:
         except ApiException as e:
             error_msg = f"Failed to upsert items: {e}"
             logger.error(error_msg)
-            raise ValueError(error_msg)
+            if e.status == 401 or e.status == 403:
+                raise CyborgDBAuthenticationError(
+                    f"Authentication failed: {error_msg}", status_code=e.status
+                ) from e
+            raise CyborgDBIndexError(error_msg, index_name=self._index_name) from e
         except (TypeError, ValueError) as e:
             logger.error(str(e))
             raise
@@ -411,7 +440,13 @@ class EncryptedIndex:
         except ApiException as e:
             error_msg = f"Failed to delete items: {e}"
             logger.error(error_msg)
-            raise ValueError(error_msg)
+            if e.status == 401 or e.status == 403:
+                raise CyborgDBAuthenticationError(
+                    f"Authentication failed: {error_msg}", status_code=e.status
+                ) from e
+            elif e.status == 404:
+                raise CyborgDBNotFoundError(error_msg) from e
+            raise CyborgDBConnectionError(error_msg) from e
 
     def query(
         self,
@@ -573,8 +608,11 @@ class EncryptedIndex:
         except ApiException as e:
             error_msg = f"Query failed: {e}"
             logger.error(error_msg)
-            raise ValueError(error_msg)
-
+            if e.status == 401 or e.status == 403:
+                raise CyborgDBAuthenticationError(
+                    f"Authentication failed: {error_msg}", status_code=e.status
+                ) from e
+            raise CyborgDBConnectionError(error_msg) from e
         except Exception as e:
             error_msg = f"Unexpected error in query: {str(e)}"
             logger.error(error_msg)
@@ -602,7 +640,11 @@ class EncryptedIndex:
         except ApiException as e:
             error_msg = f"Failed to list document IDs: {e}"
             logger.error(error_msg)
-            raise ValueError(error_msg)
+            if e.status == 401 or e.status == 403:
+                raise CyborgDBAuthenticationError(
+                    f"Authentication failed: {error_msg}", status_code=e.status
+                ) from e
+            raise CyborgDBConnectionError(error_msg) from e
 
     def is_training(self) -> bool:
         """
@@ -622,7 +664,11 @@ class EncryptedIndex:
         except ApiException as e:
             error_msg = f"Failed to get index training status: {e}"
             logger.error(error_msg)
-            raise ValueError(error_msg)
+            if e.status == 401 or e.status == 403:
+                raise CyborgDBAuthenticationError(
+                    f"Authentication failed: {error_msg}", status_code=e.status
+                ) from e
+            raise CyborgDBConnectionError(error_msg) from e
 
     def _key_to_hex(self) -> str:
         """Convert the binary key to a hex string for API calls."""

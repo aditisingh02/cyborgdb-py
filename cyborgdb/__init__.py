@@ -8,6 +8,18 @@ from .client.client import Client, IndexConfig, IndexIVF, IndexIVFPQ, IndexIVFFl
 # Re-export from encrypted_index.py
 from .client.encrypted_index import EncryptedIndex
 
+# Re-export exceptions
+from .client.exceptions import (
+    CyborgDBError,
+    CyborgDBConnectionError,
+    CyborgDBValidationError,
+    CyborgDBAuthenticationError,
+    CyborgDBNotFoundError,
+    CyborgDBIndexError,
+    CyborgDBInvalidKeyError,
+    CyborgDBInvalidURLError,
+)
+
 # Re-export demo functionality
 from .demo import get_demo_api_key
 
@@ -39,4 +51,13 @@ __all__ = [
     "IndexIVFFlat",
     "CyborgVectorStore",
     "get_demo_api_key",
+    # Exceptions
+    "CyborgDBError",
+    "CyborgDBConnectionError",
+    "CyborgDBValidationError",
+    "CyborgDBAuthenticationError",
+    "CyborgDBNotFoundError",
+    "CyborgDBIndexError",
+    "CyborgDBInvalidKeyError",
+    "CyborgDBInvalidURLError",
 ]

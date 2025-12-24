@@ -36,6 +36,15 @@ except ImportError:
     )
 
 from cyborgdb.client.encrypted_index import EncryptedIndex
+from cyborgdb.client.exceptions import (
+    CyborgDBConnectionError,
+    CyborgDBValidationError,
+    CyborgDBAuthenticationError,
+    CyborgDBNotFoundError,
+    CyborgDBIndexError,
+    CyborgDBInvalidKeyError,
+    CyborgDBInvalidURLError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +56,46 @@ __all__ = [
     "IndexIVFPQ",
     "IndexIVFFlat",
 ]
+
+
+def _validate_url(url: str) -> None:
+    """
+    Validate that the provided URL is a valid HTTP/HTTPS URL.
+
+    Args:
+        url: The URL string to validate
+
+    Raises:
+        CyborgDBInvalidURLError: If the URL is invalid
+    """
+    if not isinstance(url, str):
+        raise CyborgDBInvalidURLError(
+            f"base_url must be a string, got {type(url).__name__}", url=url
+        )
+
+    url = url.strip()
+    if not url:
+        raise CyborgDBInvalidURLError("base_url cannot be empty", url=url)
+
+    # Check if URL starts with http:// or https://
+    if not (url.startswith("http://") or url.startswith("https://")):
+        raise CyborgDBInvalidURLError(
+            "base_url must start with 'http://' or 'https://'", url=url
+        )
+
+    # Basic validation: try to parse as URL
+    try:
+        from urllib.parse import urlparse
+
+        parsed = urlparse(url)
+        if not parsed.netloc:
+            raise CyborgDBInvalidURLError(
+                f"Invalid URL format: missing host/domain in '{url}'", url=url
+            )
+    except Exception as e:
+        if isinstance(e, CyborgDBInvalidURLError):
+            raise
+        raise CyborgDBInvalidURLError(f"Invalid URL format: {e}", url=url)
 
 # Re-export with friendly names
 IndexIVF = _OpenAPIIndexIVFModel
@@ -63,7 +112,25 @@ class Client:
     This class provides methods for creating, loading, and managing encrypted indexes.
     """
 
-    def __init__(self, base_url, api_key, verify_ssl=None):
+    def __init__(
+        self, base_url: str, api_key: Optional[str] = None, verify_ssl: Optional[bool] = None
+    ):
+        """
+        Initialize the CyborgDB client.
+
+        Args:
+            base_url: The base URL of the CyborgDB service (e.g., 'https://api.cyborg.co' or 'http://localhost:8000')
+            api_key: Optional API key for authentication
+            verify_ssl: Optional SSL verification setting. If None, auto-detects based on URL.
+                        For localhost/127.0.0.1, SSL verification is disabled by default.
+
+        Raises:
+            CyborgDBInvalidURLError: If the base_url is invalid
+            CyborgDBConnectionError: If the client fails to initialize
+        """
+        # Validate URL
+        _validate_url(base_url)
+
         # If base_url is http, disable SSL verification
         if base_url.startswith("http://"):
             verify_ssl = False
@@ -112,7 +179,7 @@ class Client:
         except Exception as e:
             error_msg = f"Failed to initialize client: {e}"
             logger.error(error_msg)
-            raise ValueError(error_msg)
+            raise CyborgDBConnectionError(error_msg, base_url=base_url) from e
 
     @staticmethod
     def generate_key(save: bool = False) -> bytes:
@@ -153,7 +220,8 @@ class Client:
             A list of index names.
 
         Raises:
-            ValueError: If the list of indexes could not be retrieved.
+            CyborgDBConnectionError: If connection to the service fails
+            CyborgDBAuthenticationError: If authentication fails
         """
         try:
             response = self.api.list_indexes_v1_indexes_list_get()
@@ -161,7 +229,12 @@ class Client:
         except ApiException as e:
             error_msg = f"Failed to list indexes: {e}"
             logger.error(error_msg)
-            raise ValueError(error_msg)
+            # Map HTTP status codes to appropriate exceptions
+            if e.status == 401 or e.status == 403:
+                raise CyborgDBAuthenticationError(
+                    f"Authentication failed: {error_msg}", status_code=e.status
+                ) from e
+            raise CyborgDBConnectionError(error_msg) from e
 
     def create_index(
         self,
@@ -175,10 +248,15 @@ class Client:
     ) -> EncryptedIndex:
         """
         Create and return a new encrypted index based on the provided configuration.
+        Raises:
+            CyborgDBInvalidKeyError: If index_key is invalid
+            CyborgDBIndexError: If index creation fails
+            CyborgDBAuthenticationError: If authentication fails
+            CyborgDBValidationError: If validation fails
         """
         # Validate index_key
         if not isinstance(index_key, bytes) or len(index_key) != 32:
-            raise ValueError("index_key must be a 32-byte bytes object")
+            raise CyborgDBInvalidKeyError()
 
         try:
             # Convert binary key to hex string
@@ -217,22 +295,35 @@ class Client:
             )
 
         except ApiException as e:
-            error_msg = f"Failed to create index: {e}"
+            error_msg = f"Failed to create index '{index_name}': {e}"
             logger.error(error_msg)
-            raise ValueError(error_msg)
+            if e.status == 401 or e.status == 403:
+                raise CyborgDBAuthenticationError(
+                    f"Authentication failed: {error_msg}", status_code=e.status
+                ) from e
+            elif e.status == 409:
+                raise CyborgDBIndexError(
+                    f"Index '{index_name}' already exists", index_name=index_name
+                ) from e
+            raise CyborgDBIndexError(error_msg, index_name=index_name) from e
         except ValidationError as ve:
-            error_msg = f"Validation error while creating index: {ve}"
+            error_msg = f"Validation error while creating index '{index_name}': {ve}"
             logger.error(error_msg)
-            raise ValueError(error_msg)
+            raise CyborgDBValidationError(error_msg) from ve
 
     def load_index(self, index_name: str, index_key: bytes) -> EncryptedIndex:
         """
         Load an existing encrypted index by name and key.
-        """
 
+        Raises:
+            CyborgDBInvalidKeyError: If index_key is invalid
+            CyborgDBNotFoundError: If the index is not found
+            CyborgDBAuthenticationError: If authentication fails
+            CyborgDBValidationError: If validation fails
+        """
         # Validate index_key
         if not isinstance(index_key, bytes) or len(index_key) != 32:
-            raise ValueError("index_key must be a 32-byte bytes object")
+            raise CyborgDBInvalidKeyError()
 
         try:
             # Convert binary key to hex string
@@ -254,11 +345,19 @@ class Client:
         except ApiException as e:
             error_msg = f"Failed to load index '{index_name}': {e}"
             logger.error(error_msg)
-            raise ValueError(error_msg)
+            if e.status == 401 or e.status == 403:
+                raise CyborgDBAuthenticationError(
+                    f"Authentication failed: {error_msg}", status_code=e.status
+                ) from e
+            elif e.status == 404:
+                raise CyborgDBNotFoundError(
+                    f"Index '{index_name}' not found", resource_name=index_name
+                ) from e
+            raise CyborgDBConnectionError(error_msg) from e
         except ValidationError as ve:
             error_msg = f"Validation error while loading index '{index_name}': {ve}"
             logger.error(error_msg)
-            raise ValueError(error_msg)
+            raise CyborgDBValidationError(error_msg) from ve
 
     def get_health(self) -> Dict[str, str]:
         """
@@ -268,11 +367,11 @@ class Client:
             A dictionary containing health status information.
 
         Raises:
-            ValueError: If the health status could not be retrieved.
+            CyborgDBConnectionError: If connection to the service fails
         """
         try:
             return self.api.health_check_v1_health_get()
         except ApiException as e:
             error_msg = f"Failed to get health status: {e}"
             logger.error(error_msg)
-            raise ValueError(error_msg)
+            raise CyborgDBConnectionError(error_msg) from e
